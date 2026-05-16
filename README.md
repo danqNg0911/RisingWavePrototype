@@ -1,23 +1,21 @@
 # RisingWave AI/RPA Local Prototype
 
-This repository contains a Windows-first local prototype that extends a Nexmark-style streaming pipeline with an AI scoring layer and an RPA decision worker.
-
-The prototype flow is:
+This repository is a Windows-first local prototype that runs a real Hugging Face scoring path on top of a RisingWave + Redpanda streaming core, then dispatches actionable results to OpenFlow/OpenRPA through `openflow_queue`.
 
 ```text
 generator -> Kafka/Redpanda -> RisingWave -> materialized views -> Kafka sinks
          -> AI scorer -> ai_scored_events -> rpa_decisions -> RPA worker/bridge -> workflow_dispatch_log
 ```
 
-This is an integration demo, not a formal benchmark. Formal streaming benchmark evidence belongs to RisingWave's official Nexmark benchmark track.
+This is an integration demo, not a formal benchmark. Formal streaming performance evidence belongs to RisingWave's official Nexmark benchmark track.
 
 ## Stack
 
 - Redpanda for Kafka-compatible topics
 - RisingWave `single_node` for local stream processing
 - Python generator for Nexmark-style `person`, `auction`, `bid` events
-- Python AI scorer worker consuming `risk_candidates`
-- Python RPA bridge consuming `rpa_decisions` and dispatching OpenFlow workitems
+- Python AI scorer calling Hugging Face Inference API
+- Python RPA bridge dispatching OpenFlow workitems
 - Streamlit dashboard backed by RisingWave SQL
 
 ## Prerequisites
@@ -29,9 +27,7 @@ This is an integration demo, not a formal benchmark. Formal streaming benchmark 
 
 ## Quick start
 
-1. Copy `.env.example` to `.env` and adjust values only if needed.
-   The repository already includes a local `.env` with safe defaults for the prototype.
-   `.env.example` now contains the recommended Hugging Face and OpenFlow/OpenRPA variables for the real integration path.
+1. Review `.env` and make sure the Hugging Face and OpenFlow credentials are valid for your environment.
 2. Start infrastructure:
 
 ```powershell
@@ -44,118 +40,76 @@ This is an integration demo, not a formal benchmark. Formal streaming benchmark 
 .\scripts\init-sql.ps1
 ```
 
-4. Start the generator:
+4. Start the long-running services in separate terminals:
+
+```powershell
+.\scripts\run-ai.ps1
+.\scripts\run-rpa.ps1
+.\scripts\run-dashboard.ps1
+```
+
+5. Run the generator:
 
 ```powershell
 .\scripts\run-generator.ps1
 ```
 
-5. Start the AI scorer and RPA worker:
-
-```powershell
-.\scripts\run-ai.ps1
-.\scripts\run-rpa.ps1
-```
-
-6. Start the dashboard:
-
-```powershell
-.\scripts\run-dashboard.ps1
-```
-
-7. Query metrics:
+6. Query metrics:
 
 ```powershell
 .\scripts\metrics.ps1
 ```
 
-8. Tear everything down when finished:
+7. Tear everything down when finished:
 
 ```powershell
 .\scripts\down.ps1
 ```
+
+## Operational URLs
+
+- Dashboard: `http://localhost:8501`
+- RisingWave SQL endpoint: `localhost:4566`
+- Kafka-compatible broker: `localhost:9092`
 
 ## Repository layout
 
 ```text
 sql/                    RisingWave tables, views, sinks, and metrics SQL
 services/generator/     Nexmark-style event generator
-services/ai_scorer/     Kafka consumer + RisingWave writer for AI scoring
+services/ai_scorer/     Kafka consumer + Hugging Face scoring worker
 services/rpa_worker/    Kafka consumer + OpenFlow/OpenRPA dispatch bridge
 services/dashboard/     Streamlit UI
 scripts/                Windows-first PowerShell entrypoints
-docs/                   Architecture, methodology, benchmark positioning, demo flow
+docs/                   Architecture, report, demo flow, integration notes
 ```
 
-## Runtime defaults
+## Current Runtime Profile
 
-- `REDPANDA_IMAGE=redpandadata/redpanda:v25.1.2`
-- `RISINGWAVE_IMAGE=risingwavelabs/risingwave:v2.8.3-aa2cf138`
-- `EVENTS_PER_SECOND=20`
-- `RUN_SECONDS=180`
-- Safe local `.env`: `AI_MODE=mock`, `RPA_MODE=mock`
-- Recommended real `.env.example`: `AI_MODE=hf_api`, `RPA_MODE=openflow_queue`
-
-## Real Integration Config
-
-Recommended variables for the upgraded path:
+The current repository configuration is aligned to the real integration path:
 
 - `AI_MODE=hf_api`
-- `HF_TOKEN`
 - `HF_MODEL_ID=facebook/bart-large-mnli`
-- `HF_PROVIDER_POLICY=preferred`
 - `RPA_MODE=openflow_queue`
-- `OPENFLOW_URL=grpc://grpc.app.openiap.io:443`
-- `OPENFLOW_USERNAME` and `OPENFLOW_PASSWORD`, or `OPENFLOW_TOKEN`
-- `OPENRPA_QUEUE_NAME`
-- `OPENRPA_ENTRY_WORKFLOW`
-- `OPENFLOW_MAX_DISPATCH_RETRIES=6`
-- `OPENFLOW_BACKLOG_BATCH_SIZE=3`
+- `OPENRPA_QUEUE_NAME=risingwave_rpa_decisions`
 
-## Switching To Real Mode
+`.env.example` keeps the same variable set with blank secrets so a fresh environment can be configured without copying live credentials.
 
-The repository keeps `.env` in a safe local configuration:
+## Runtime Notes
 
-- `AI_MODE=mock`
-- `RPA_MODE=mock`
+- The dashboard is read-only and queries RisingWave directly.
+- `rpa_decisions` are created from `ai_decision_context`, so decisions can appear before Hugging Face scoring has fully drained because the view falls back to rule-based risk when inference is still pending.
+- With the current `EVENTS_PER_SECOND=20` and `RUN_SECONDS=180`, the generator produces data much faster than a single Hugging Face API consumer can score it. Expect `risk_candidates`, `ai_scored_events`, and `workflow_dispatch_log` to diverge while the run is in flight.
+- If `OPENFLOW_URL` is set to the OpenIAP UI URL such as `https://app.openiap.io/ui`, the worker normalizes it to the gRPC endpoint pattern internally. Using `grpc://grpc.app.openiap.io:443` directly is still the cleaner configuration.
 
-To cut over to real integrations:
+## Docs
 
-1. Open `.env`.
-2. Change `AI_MODE=hf_api`.
-3. Set `HF_TOKEN`.
-4. Keep `HF_MODEL_ID=facebook/bart-large-mnli` or replace it with your chosen zero-shot model.
-5. Change `RPA_MODE=openflow_queue`.
-6. Set `OPENFLOW_URL` to a real SDK endpoint such as `grpc://grpc.app.openiap.io:443`.
-7. Set either `OPENFLOW_TOKEN` or `OPENFLOW_USERNAME` with `OPENFLOW_PASSWORD`.
-8. Set `OPENRPA_QUEUE_NAME`.
-9. Recreate the workers:
+- Full report: [docs/prototype_report.md](./docs/prototype_report.md)
+- Integration details: [docs/openflow_openrpa_integration.md](./docs/openflow_openrpa_integration.md)
+- Architecture: [docs/architecture.md](./docs/architecture.md)
+- Demo flow: [docs/demo_script.md](./docs/demo_script.md)
 
-```powershell
-.\scripts\run-ai.ps1
-.\scripts\run-rpa.ps1
-```
-
-If you want a production-like template instead of the safe local one, start from `.env.example`.
-
-Expected verification after cutover:
-
-- `docker compose logs -f ai_scorer` shows `mode=hf_api` or `hf_api_fallback_rule`
-- `docker compose logs -f rpa_worker` shows `mode=openflow_queue` and non-null `external_workitem_id`
-- `SELECT dispatch_mode, status, COUNT(*) FROM workflow_dispatch_log GROUP BY dispatch_mode, status;`
-- `SELECT model_version, COUNT(*) FROM ai_scored_events GROUP BY model_version;`
-- If you accidentally paste the OpenIAP UI URL such as `https://app.openiap.io/ui`, the worker now normalizes it internally, but using the gRPC endpoint directly is more reliable.
-
-## Notes
-
-- The included PowerShell scripts are the primary operational path for this repository.
-- The dashboard is intentionally read-only and queries only RisingWave.
-- The AI layer supports `mock`, `hf_api`, and a best-effort `hf_local` mode with rule fallback.
-- The RPA layer writes `workflow_dispatch_log` and can run in `mock`, `openflow_queue`, or `openrpa_full` mode.
-- A full usage-and-results report is available in [docs/prototype_report.md](./docs/prototype_report.md).
-- OpenFlow/OpenRPA integration details are documented in [docs/openflow_openrpa_integration.md](./docs/openflow_openrpa_integration.md).
-
-## Benchmark positioning
+## Benchmark Positioning
 
 Use this wording in reports and demos:
 
