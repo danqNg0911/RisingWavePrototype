@@ -1,0 +1,12 @@
+{
+  "id": 101,
+  "name": "user_101",
+  "email": "user101@example.com",
+  "city": "Hanoi",
+  "state": "HN",
+  "date_time": "2026-05-15T10:00:00Z",
+  "extra": {
+    "risk_tier": "medium"
+  }
+}
+

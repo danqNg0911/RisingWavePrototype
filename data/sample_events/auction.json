@@ -1,0 +1,15 @@
+{
+  "id": 5001,
+  "item_name": "merchant_5001",
+  "description": "electronics merchant",
+  "initial_bid": 100,
+  "reserve": 500,
+  "date_time": "2026-05-15T10:00:02Z",
+  "expires": "2026-05-15T11:00:02Z",
+  "seller": 101,
+  "category": 3,
+  "extra": {
+    "segment": "consumer"
+  }
+}
+

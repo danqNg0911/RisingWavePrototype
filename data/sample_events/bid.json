@@ -1,0 +1,13 @@
+{
+  "auction": 5001,
+  "bidder": 101,
+  "price": 1200,
+  "channel": "mobile",
+  "url": "https://example.com/txn/abc",
+  "date_time": "2026-05-15T10:00:05Z",
+  "extra": {
+    "location": "Hanoi",
+    "message": "urgent purchase"
+  }
+}
+
