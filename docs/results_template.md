@@ -8,8 +8,7 @@
 | Risk candidates | TODO | `risk_candidates` count |
 | AI-scored events | TODO | `ai_scored_events` count |
 | RPA decisions | TODO | `rpa_decisions` count |
-| Workflow success rate | TODO | `workflow_audit_log` |
+| Dispatch success rate | TODO | `workflow_dispatch_log` |
 | Average decision latency | TODO | `decision_time - event_time` |
 
 > These prototype results demonstrate integration feasibility only. They are not used as a formal performance comparison. Formal streaming performance evidence is based on published RisingWave Nexmark benchmark results.
-

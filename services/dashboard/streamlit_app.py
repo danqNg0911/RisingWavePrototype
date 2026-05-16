@@ -11,7 +11,7 @@ DSN = os.getenv("RISINGWAVE_DSN", "postgresql://root@risingwave:4566/dev")
 
 st.set_page_config(page_title="RisingWave AI/RPA Prototype", layout="wide")
 st.title("RisingWave AI/RPA Prototype Dashboard")
-st.caption("Nexmark-style streaming data with AI scoring and RPA action simulation.")
+st.caption("Nexmark-style streaming data with Hugging Face-ready AI scoring and OpenFlow/OpenRPA-ready workitem dispatch.")
 
 
 def query_df(query: str) -> pd.DataFrame:
@@ -42,16 +42,16 @@ try:
     overview_3.metric("AI Scored", metric_value("SELECT COUNT(*) AS value FROM ai_scored_events", "value"))
     overview_4.metric("RPA Decisions", metric_value("SELECT COUNT(*) AS value FROM rpa_decisions", "value"))
     overview_5.metric(
-        "Workflow Success Rate",
+        "Dispatch Success Rate",
         metric_value(
             """
             SELECT
                 COALESCE(
-                    SUM(CASE WHEN status = 'SUCCEEDED' THEN 1 ELSE 0 END)::DOUBLE PRECISION
+                    SUM(CASE WHEN status = 'DISPATCHED' THEN 1 ELSE 0 END)::DOUBLE PRECISION
                     / NULLIF(COUNT(*), 0),
                     0
                 ) AS value
-            FROM workflow_audit_log
+            FROM workflow_dispatch_log
             """,
             "value",
         ),
@@ -62,8 +62,13 @@ try:
     with tab_overview:
         latency = query_df(
             """
-            SELECT AVG(EXTRACT(EPOCH FROM (decision_time - event_time))) AS avg_latency_seconds
-            FROM rpa_decisions
+            SELECT
+                AVG(EXTRACT(EPOCH FROM r.decision_time) - EXTRACT(EPOCH FROM r.event_time)) AS avg_decision_latency_seconds,
+                AVG(EXTRACT(EPOCH FROM d.dispatched_at) - EXTRACT(EPOCH FROM d.decision_time)) AS avg_dispatch_latency_seconds
+            FROM rpa_decisions r
+            LEFT JOIN workflow_dispatch_log d
+              ON r.transaction_id = d.transaction_id
+             AND r.rpa_action = d.rpa_action
             """
         )
         st.subheader("Latency")
@@ -78,7 +83,8 @@ try:
                 amount,
                 final_risk_score,
                 rpa_action,
-                decision_time
+                decision_time,
+                model_version
             FROM rpa_decisions
             ORDER BY decision_time DESC
             LIMIT 20
@@ -121,13 +127,13 @@ try:
         audit_counts = query_df(
             """
             SELECT status, COUNT(*) AS total
-            FROM workflow_audit_log
+            FROM workflow_dispatch_log
             GROUP BY status
             ORDER BY total DESC, status
             """
         )
         if not audit_counts.empty:
-            fig = px.pie(audit_counts, names="status", values="total", title="Workflow Status")
+            fig = px.pie(audit_counts, names="status", values="total", title="Dispatch Status")
             st.plotly_chart(fig, use_container_width=True)
         st.dataframe(audit_counts, use_container_width=True)
 
@@ -139,14 +145,18 @@ try:
                 rpa_action,
                 status,
                 retry_count,
-                processed_at,
+                dispatch_mode,
+                queue_name,
+                external_workitem_id,
+                external_state,
+                dispatched_at,
                 error_message
-            FROM workflow_audit_log
-            ORDER BY processed_at DESC NULLS LAST, created_at DESC
+            FROM workflow_dispatch_log
+            ORDER BY dispatched_at DESC NULLS LAST, created_at DESC
             LIMIT 25
             """
         )
-        st.subheader("Recent Audit Events")
+        st.subheader("Recent Dispatch Events")
         st.dataframe(failures, use_container_width=True)
 except Exception as exc:
     st.error(f"Dashboard query failed: {exc}")

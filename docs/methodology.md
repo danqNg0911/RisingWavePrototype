@@ -7,7 +7,7 @@ This prototype follows the dataflow spirit of the official RisingWave Nexmark be
 3. Ingest them into RisingWave using connector-backed tables.
 4. Build materialized views for transaction cleaning, feature generation, and risk candidate selection.
 5. Extend the stream-processing core with an asynchronous AI scoring worker.
-6. Convert final risk scores into RPA actions and simulate downstream workflow execution.
+6. Convert final risk scores into RPA actions and dispatch downstream workitems.
 
 ## What matches the benchmark methodology
 
@@ -20,10 +20,9 @@ This prototype follows the dataflow spirit of the official RisingWave Nexmark be
 
 - Local Docker Compose rather than Kubernetes benchmark infrastructure.
 - Deterministic AI scoring rather than a heavy ML model.
-- Python worker-based RPA simulation instead of OpenRPA or n8n production integration.
+- Python bridge-based OpenFlow/OpenRPA dispatch, with desktop execution remaining a host-side concern.
 - Demo-oriented metrics rather than formal benchmark claims.
 
 ## Reporting guidance
 
 Use the prototype to show integration feasibility, not benchmark superiority. Formal benchmark claims should cite RisingWave's official Nexmark benchmark documentation and repository separately.
-

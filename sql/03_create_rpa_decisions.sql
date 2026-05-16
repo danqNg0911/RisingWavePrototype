@@ -24,14 +24,21 @@ SELECT
 FROM ai_decision_context
 WHERE final_risk_score >= 0.60;
 
-CREATE TABLE IF NOT EXISTS workflow_audit_log (
+CREATE TABLE IF NOT EXISTS workflow_dispatch_log (
     action_id VARCHAR PRIMARY KEY,
     transaction_id VARCHAR,
     rpa_action VARCHAR,
     status VARCHAR,
     retry_count INT,
     created_at TIMESTAMPTZ,
-    processed_at TIMESTAMPTZ,
+    dispatched_at TIMESTAMPTZ,
+    decision_time TIMESTAMPTZ,
     processor VARCHAR,
-    error_message VARCHAR
+    error_message VARCHAR,
+    dispatch_mode VARCHAR,
+    queue_name VARCHAR,
+    entry_workflow VARCHAR,
+    external_workitem_id VARCHAR,
+    external_state VARCHAR,
+    payload_json VARCHAR
 );

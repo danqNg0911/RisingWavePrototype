@@ -51,6 +51,5 @@
 3. `risk_candidates` acts as the pre-filter before AI scoring.
 4. The AI worker enriches each candidate with `ai_score`, `confidence`, and `decision_reason`.
 5. RisingWave maps those scores into `rpa_decisions`.
-6. The RPA worker simulates action handling and writes immutable workflow audit records.
-7. The dashboard presents transaction counts, risk volume, action mix, latency, and workflow status.
-
+6. The RPA worker dispatches each decision as a local mock action or a real OpenFlow workitem, depending on `RPA_MODE`.
+7. The dashboard presents transaction counts, risk volume, action mix, latency, and dispatch status.
